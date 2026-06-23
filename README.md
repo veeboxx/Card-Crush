@@ -84,6 +84,8 @@ public/         static assets: icons, OCR worker + WASM core
 ```
 
 ---
+## Download
+(Click Here for Apple Silicon dmg)[https://github.com/veeboxx/Card-Crush/releases/tag/v1.0.0]
 
 ## Building it yourself
 

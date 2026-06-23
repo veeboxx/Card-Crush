@@ -1,74 +1,70 @@
 # Card Crush — Collector Vault
 
-A local-first desktop app for cataloguing a trading-card collection. Track what you
-own and what you want, rate cards, snap or import card images, OCR the text off them
-for instant search, and export your collection as a printable PDF or a self-contained
-HTML file you can open on your phone at a card show.
+A simple, local-first desktop app for cataloguing a trading-card collection.
 
-Built with [Tauri](https://tauri.app/) (Rust + system webview) and React. Everything
-lives on your own machine — there is no account, no server, and no cloud. Your data
-sits in the browser engine's local storage and your images in IndexedDB.
+I built this for myself. I collect cards and I just wanted a clean way to keep track of
+what I own and what I'm chasing — without an account, without a monthly fee, without my
+data living on someone else's server. I'm tired of everything being a subscription, so I
+made something small that does exactly what I need and nothing I don't. Figured I'd share
+it in case it's useful to someone else.
 
-> **Note on origin:** Card Crush was built collaboratively with Anthropic's Claude as
-> an AI pair-programmer. The architecture, code, and this document were produced through
-> that process.
+Everything stays on your own machine. No login, no cloud, no tracking.
 
----
-
-## Features
-
-- **Owned / Wishlist tracking** — mark each card as owned or wishlisted, with a
-  five-heart "crush" rating to flag your favourites.
-- **Custom presets** — define field templates per game (One Piece, Magic, Lorcana,
-  etc.) so each card type captures the fields that matter: set, number, rarity, colour,
-  power, and so on.
-- **Image capture & import** — drag in or paste a card image; it's stored locally.
-- **Dual-face cards** — cards can carry a front and a back image with a flip view on
-  the detail page.
-- **OCR-assisted search** — extract the printed text off a card image (both faces for
-  dual-face cards) and fold it into the search index, so you can find a card even if you
-  never typed its name. Powered by Tesseract.js running locally in WebAssembly.
-- **Fast search** — matches on name, set/number, preset fields, notes, and OCR text.
-- **PDF export** — a compact, printer-friendly 3x5 grid split into Owned and Wishlist
-  sections. Good for handing to a vendor or keeping in your bag.
-- **HTML export for phones** — a single self-contained `.html` file with your whole
-  collection, full search, and Owned/Wishlist tabs. AirDrop it to your phone and open
-  it in Safari; works offline. Ideal for duplicate-checking at a card show.
-- **Backup & restore** — export/import your entire collection (including images) as a
-  single backup file.
-- **Theming** — multiple colour themes including light "Daylight," "Parchment," and
-  "Porcelain" modes alongside the default dark "Vault."
+> Built collaboratively with Anthropic's Claude as an AI pair-programmer.
 
 ---
 
 ## Screenshots
 
-> _Add your own screenshots here. Suggested shots:_
->
-> - `docs/browse.png` — the Browse grid
-> - `docs/card-detail.png` — a card detail page with the field sheet
-> - `docs/search.png` — search results
-> - `docs/export-html.png` — the HTML export open in Safari on a phone
+![Browse](browse.png)
 
-```
-![Browse](docs/browse.png)
-![Card detail](docs/card-detail.png)
-```
+![Card detail](card-detail.png)
+
+![Search](search.png)
+
+---
+
+## What it does
+
+- **Track owned & wishlist** — mark each card as owned or wishlisted, plus a five-heart
+  "crush" rating for your favourites.
+- **Custom presets per game** — set up field templates for One Piece, Magic, Lorcana, or
+  whatever you collect, so each card captures the right info (set, number, rarity, colour,
+  power, etc.).
+- **Card images** — drag in or paste a photo of the card; stored locally.
+- **Dual-face cards** — front and back images with a flip view.
+- **OCR-assisted search** — pull the printed text off a card image (both faces for
+  dual-face cards) so you can find a card even if you never typed its name. Runs locally
+  via Tesseract (WebAssembly).
+- **Search everything** — name, set/number, preset fields, notes, and OCR text.
+- **PDF export** — compact, printer-friendly grid split into Owned and Wishlist. Hand it
+  to a vendor or keep it in your bag.
+- **HTML export for your phone** — one self-contained file with your whole collection and
+  full search. AirDrop it to your phone, open in Safari, works offline. Great for checking
+  duplicates at a card show.
+- **Backup & restore** — export/import your whole collection, images included.
+- **Themes** — dark "Vault" by default, plus light modes (Daylight, Parchment, Porcelain)
+  and a few colour options.
+
+---
+
+## Why it exists
+
+Most collection trackers want a subscription, an account, or both — and then your data is
+locked in their cloud. I wanted the opposite: a one-time thing that runs on my own computer,
+keeps my data in my hands, and is dead simple to use. That's all this is.
 
 ---
 
 ## Tech stack
 
-| Layer            | Choice                                                        |
-| ---------------- | ------------------------------------------------------------- |
-| Shell            | Tauri 2 (Rust backend + native webview)                       |
-| UI               | React 18 + React Router                                       |
-| Styling          | Tailwind CSS                                                  |
-| Icons            | lucide-react                                                  |
-| Local storage    | IndexedDB (via `idb`) for images; webview storage for data    |
-| OCR              | tesseract.js 5 (WASM, runs locally)                           |
-| PDF              | jsPDF                                                         |
-| Build            | Vite + TypeScript                                             |
+- **[Tauri 2](https://tauri.app/)** — Rust backend + native system webview (tiny, fast)
+- **React 18 + React Router** — UI
+- **Tailwind CSS** — styling
+- **tesseract.js** — local OCR (WebAssembly)
+- **jsPDF** — PDF export
+- **IndexedDB** — local image storage
+- **Vite + TypeScript** — build tooling
 
 ---
 
@@ -78,91 +74,67 @@ sits in the browser engine's local storage and your images in IndexedDB.
 src/
   pages/        Browse, Search, AddCard, CardView, Presets, Settings
   components/   CardThumb, CrushRating, Fields, ImageDrop, TagInput, Layout, ui
-  lib/          ocr, ocrSuggester, export (PDF/HTML), backup, images, native, utils, bgRemoval
+  lib/          ocr, ocrSuggester, export (PDF/HTML), backup, images, native, utils
   store/        CollectionContext (app state)
   db/           database (IndexedDB wrapper)
   data/         defaultPresets
   types/        shared TypeScript types
-src-tauri/      Rust shell, config, icons, capabilities
-public/         static assets: icons, OCR worker + WASM core, language data
+src-tauri/      Rust shell, config, icons
+public/         static assets: icons, OCR worker + WASM core
 ```
 
 ---
 
-## Building from source
+## Building it yourself
 
 ### Prerequisites
 
 - **Node.js** 18+ and npm
-- **Rust** (stable) — install via [rustup](https://rustup.rs/)
-- **macOS:** Xcode command line tools (`xcode-select --install`)
-- See the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your OS.
+- **Rust** (stable) — [rustup.rs](https://rustup.rs/)
+- **macOS:** `xcode-select --install`
+- Full list: [Tauri prerequisites](https://tauri.app/start/prerequisites/)
 
-### One-time setup of OCR assets
+### Setup
 
-The OCR engine needs its WebAssembly core files, which are large and not committed to
-the repo. Fetch them once into `public/tesseract-core/`:
+The OCR WebAssembly core files are large and not committed. Fetch them once:
 
 ```bash
 bash scripts/fetch-ocr-assets.sh
 ```
 
-(Or run the curl commands inside that script by hand.) The English **language data**
-is downloaded automatically by the app from a CDN the first time you use OCR, then
-cached locally — so the first OCR run on a fresh install needs an internet connection.
+The OCR language data downloads automatically from a CDN the first time you use OCR, then
+caches locally — so the first OCR run on a fresh install needs internet. Everything after
+that is offline.
 
-### macOS app icon
-
-If `src-tauri/icons/icon.icns` is missing, regenerate it from the source PNG:
+If the macOS icon is missing, regenerate it:
 
 ```bash
 bash scripts/make-icon.sh
 ```
 
-### Install and run
+### Run / build
 
 ```bash
 npm install
-npm run tauri dev      # development, hot-reload
+npm run tauri dev      # development
+npm run tauri build    # build the app + DMG
 ```
 
-### Build a distributable app / DMG
+Output lands in `src-tauri/target/release/bundle/`.
 
-```bash
-npm run tauri build
-```
-
-The bundled app and installer are written to:
-
-```
-src-tauri/target/release/bundle/macos/Card Crush.app
-src-tauri/target/release/bundle/dmg/Card Crush_<version>_aarch64.dmg
-```
-
-> The app is **not** code-signed. On another Mac, the first launch will need a
-> right-click -> **Open** to bypass Gatekeeper.
-
----
-
-## Exports explained
-
-- **PDF** — Settings -> "Save collection as PDF." Compact grid, Owned and Wishlist
-  separated, white background for printing.
-- **HTML** — Settings -> "Save collection as HTML." One self-contained file with all
-  card data and images embedded. Open in any browser; works fully offline. Designed to
-  be AirDropped to an iPhone and opened in Safari (optionally Add to Home Screen for an
-  app-like, full-screen view).
+> The app isn't code-signed, so on another Mac the first launch needs a
+> right-click → **Open** to get past Gatekeeper.
 
 ---
 
 ## Privacy
 
-Card Crush stores everything locally. It makes exactly one kind of outbound request:
-downloading the Tesseract OCR language file from a public CDN on first OCR use, after
-which it is cached and OCR works offline. No collection data ever leaves your machine.
+Everything is stored locally. The only outbound request the app ever makes is downloading
+the OCR language file from a public CDN on first use (then cached). Your collection never
+leaves your machine.
 
 ---
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — do whatever you want with it. See [LICENSE](LICENSE).

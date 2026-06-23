@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+src-tauri/target/
+
+# OCR WASM core files (large; fetched via scripts/fetch-ocr-assets.sh)
+public/tesseract-core/
+public/eng.traineddata
+public/eng.traineddata.gz
+
+# Generated macOS icon (regenerate via scripts/make-icon.sh)
+src-tauri/icons/icon.icns
+src-tauri/icons/icon.iconset/
+
+# OS / editor cruft
+.DS_Store
+*.log
+.vscode/
+.idea/

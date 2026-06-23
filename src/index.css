@@ -1,0 +1,287 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  /* Vault — the default magenta/violet collector mood */
+  --c-void: 8 9 13;
+  --c-ink: 12 13 18;
+  --c-panel: 19 20 28;
+  --c-panel2: 24 26 36;
+  --c-hairline: 255 255 255;
+  --c-crush: 255 61 129;
+  --c-crush2: 255 126 179;
+  --c-cyan: 55 227 255;
+  --c-gold: 255 206 77;
+  --c-violet: 157 123 255;
+  /* Foreground (text/surfaces). Dark themes inherit this near-white; light themes override. */
+  --c-fg: 233 235 242;
+  /* Text on colored accent fills — constant light so buttons stay legible in every theme. */
+  --c-on-accent: 255 255 255;
+}
+
+/* Maritime noir — teal + brass on cold slate */
+[data-theme='maritime'] {
+  --c-void: 8 13 17;
+  --c-ink: 12 18 23;
+  --c-panel: 17 25 31;
+  --c-panel2: 23 33 41;
+  --c-hairline: 200 222 232;
+  --c-crush: 42 196 184;
+  --c-crush2: 120 226 214;
+  --c-cyan: 96 176 214;
+  --c-gold: 212 175 110;
+  --c-violet: 110 150 200;
+}
+
+/* Warm archive — amber + sepia on aged brown */
+[data-theme='archive'] {
+  --c-void: 22 16 11;
+  --c-ink: 28 21 15;
+  --c-panel: 38 28 20;
+  --c-panel2: 47 35 25;
+  --c-hairline: 255 236 212;
+  --c-crush: 224 150 70;
+  --c-crush2: 240 188 128;
+  --c-cyan: 120 172 166;
+  --c-gold: 232 196 112;
+  --c-violet: 196 134 120;
+}
+
+/* Going Merry — Nami's orange with leaf/sea green */
+[data-theme='merry'] {
+  --c-void: 10 14 16;
+  --c-ink: 14 19 21;
+  --c-panel: 20 27 29;
+  --c-panel2: 27 35 37;
+  --c-hairline: 226 240 233;
+  --c-crush: 245 140 50;
+  --c-crush2: 255 178 102;
+  --c-cyan: 70 200 130;
+  --c-gold: 242 200 110;
+  --c-violet: 60 184 168;
+}
+
+/* Ahsoka — burnt orange, cream, and a cool saber blue */
+[data-theme='ahsoka'] {
+  --c-void: 12 12 16;
+  --c-ink: 16 16 21;
+  --c-panel: 23 22 29;
+  --c-panel2: 30 29 38;
+  --c-hairline: 255 244 234;
+  --c-crush: 232 122 52;
+  --c-crush2: 246 174 112;
+  --c-cyan: 150 214 246;
+  --c-gold: 236 200 120;
+  --c-violet: 96 162 210;
+}
+
+/* Abyss — deep ocean blue with cyan + ice */
+[data-theme='abyss'] {
+  --c-void: 6 11 18;
+  --c-ink: 9 16 25;
+  --c-panel: 14 23 35;
+  --c-panel2: 20 31 46;
+  --c-hairline: 200 224 255;
+  --c-crush: 56 150 255;
+  --c-crush2: 120 188 255;
+  --c-cyan: 64 224 230;
+  --c-gold: 220 200 130;
+  --c-violet: 130 150 245;
+}
+
+/* Verdant — emerald & gold on forest-black */
+[data-theme='verdant'] {
+  --c-void: 8 14 10;
+  --c-ink: 11 19 14;
+  --c-panel: 16 27 20;
+  --c-panel2: 22 36 27;
+  --c-hairline: 220 245 228;
+  --c-crush: 52 200 120;
+  --c-crush2: 120 226 168;
+  --c-cyan: 90 210 190;
+  --c-gold: 232 200 110;
+  --c-violet: 150 200 120;
+}
+
+/* Ember — molten red & orange on charcoal */
+[data-theme='ember'] {
+  --c-void: 16 10 9;
+  --c-ink: 22 13 12;
+  --c-panel: 31 19 17;
+  --c-panel2: 41 25 22;
+  --c-hairline: 255 224 214;
+  --c-crush: 240 78 70;
+  --c-crush2: 252 140 92;
+  --c-cyan: 235 170 90;
+  --c-gold: 245 196 96;
+  --c-violet: 226 110 120;
+}
+
+/* Daylight — clean white & cool gray (LIGHT) */
+[data-theme='daylight'] {
+  color-scheme: light;
+  --c-void: 244 246 250;
+  --c-ink: 255 255 255;
+  --c-panel: 255 255 255;
+  --c-panel2: 238 241 246;
+  --c-hairline: 20 30 50;
+  --c-crush: 226 38 110;
+  --c-crush2: 200 30 96;
+  --c-cyan: 14 165 190;
+  --c-gold: 192 138 16;
+  --c-violet: 124 92 230;
+  --c-fg: 24 28 38;
+}
+
+/* Parchment — warm cream & sepia (LIGHT) */
+[data-theme='parchment'] {
+  color-scheme: light;
+  --c-void: 244 236 222;
+  --c-ink: 251 244 232;
+  --c-panel: 250 242 229;
+  --c-panel2: 238 227 208;
+  --c-hairline: 60 44 24;
+  --c-crush: 192 96 28;
+  --c-crush2: 168 80 20;
+  --c-cyan: 30 130 120;
+  --c-gold: 168 124 24;
+  --c-violet: 150 80 60;
+  --c-fg: 46 34 22;
+}
+
+/* Porcelain — soft off-white & blush (LIGHT) */
+[data-theme='porcelain'] {
+  color-scheme: light;
+  --c-void: 248 244 246;
+  --c-ink: 255 252 254;
+  --c-panel: 255 251 253;
+  --c-panel2: 242 234 239;
+  --c-hairline: 40 26 36;
+  --c-crush: 214 58 128;
+  --c-crush2: 188 44 110;
+  --c-cyan: 70 150 168;
+  --c-gold: 176 128 40;
+  --c-violet: 140 104 214;
+  --c-fg: 38 28 36;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Manrope', system-ui, sans-serif;
+  background-color: rgb(var(--c-void));
+  color: rgb(var(--c-fg));
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
+}
+
+/* Ambient vault atmosphere fixed behind everything — kept very subtle */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(75% 55% at 15% -8%, rgb(var(--c-crush) / 0.05), transparent 60%),
+    radial-gradient(60% 50% at 100% 6%, rgb(var(--c-cyan) / 0.035), transparent 55%);
+}
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.35;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+@layer components {
+  .glass {
+    @apply bg-panel/70 backdrop-blur-xl border border-hairline shadow-glass;
+  }
+  .glass-2 {
+    @apply bg-panel2/60 backdrop-blur-md border border-hairline;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide;
+  }
+  .input {
+    @apply w-full rounded-2xl bg-void/60 border border-hairline px-4 py-3 text-sm text-white
+      placeholder:text-white/30 outline-none transition
+      focus:border-crush/60 focus:ring-2 focus:ring-crush/20;
+  }
+  .label {
+    @apply mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold
+      transition active:scale-[0.97] disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply btn bg-crush text-onaccent shadow-card hover:bg-crush/90;
+  }
+  .btn-ghost {
+    @apply btn bg-white/5 text-white/80 hover:bg-white/10 border border-hairline;
+  }
+  .section-title {
+    @apply font-display text-lg font-bold tracking-tight text-white;
+  }
+  .stat-num {
+    @apply font-display text-3xl font-extrabold tracking-tight;
+  }
+}
+
+/* hide scrollbars on horizontal scrollers but keep function */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-style: none;
+  scrollbar-width: none;
+}
+
+/* gradient text helper — kept subtle */
+.text-gradient {
+  background: linear-gradient(120deg, rgb(var(--c-fg)), rgb(var(--c-crush2)) 70%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* shimmering skeleton */
+.skeleton {
+  background: linear-gradient(90deg, #14151d 25%, #1d1f2a 37%, #14151d 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* safe-area padding for installed iOS PWA */
+.safe-top { padding-top: env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+/* crush 5/5 heart burst */
+@keyframes crushburst {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.4); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--bx), var(--by)) scale(1.1); }
+}
+.crush-burst-heart {
+  animation: crushburst 0.62s cubic-bezier(0.18, 0.9, 0.32, 1) forwards;
+}

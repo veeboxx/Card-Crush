@@ -7,10 +7,18 @@ import { hashHue, initials } from '../lib/utils';
 export default function CardThumb({ card }: { card: Card }) {
   const url = useStoredImage(card.imageId);
   const hue = hashHue(card.name);
+  const status = card.status ?? (card.owned ? 'owned' : card.wishlist ? 'wishlist' : 'none');
+
+  const dotColor =
+    status === 'owned'   ? 'bg-emerald-400' :
+    status === 'wishlist'? 'bg-rose-500' :
+    status === 'grail'   ? 'bg-amber-400' :
+    null;
+
   return (
     <Link to={`/card/${card.id}`} className="group block">
       <div
-        className="relative overflow-hidden rounded-2xl ring-1 ring-white/8 shadow-card transition group-hover:-translate-y-1 group-hover:ring-crush/40"
+        className="relative overflow-hidden rounded-2xl ring-1 ring-white/8 shadow-card transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-lg group-hover:ring-crush/40"
         style={{ aspectRatio: '5 / 7' }}
       >
         {url ? (
@@ -36,18 +44,20 @@ export default function CardThumb({ card }: { card: Card }) {
           )}
         </div>
 
-        {/* dual-face badge */}
-        {card.dualFace && (
-          <span className="absolute left-2 top-2 flex items-center gap-0.5 rounded-full bg-black/50 px-1.5 py-0.5 text-[9px] font-bold text-white/70 backdrop-blur-sm">
-            <Layers size={9} /> 2
-          </span>
-        )}
+        {/* top-left badges */}
+        <div className="absolute left-2 top-2 flex items-center gap-1">
+          {card.dualFace && (
+            <span className="flex items-center gap-0.5 rounded-full bg-black/50 px-1.5 py-0.5 text-[9px] font-bold text-white/70 backdrop-blur-sm">
+              <Layers size={9} /> 2
+            </span>
+          )}
+        </div>
 
-        {/* status dot */}
-        {(card.owned || card.wishlist) && (
+        {/* status dot — top right */}
+        {dotColor && (
           <span
-            className={`absolute right-2 top-2 h-2.5 w-2.5 rounded-full ring-2 ring-black/40 ${card.owned ? 'bg-emerald-400' : 'bg-crush'}`}
-            title={card.owned ? 'Owned' : 'Wishlist'}
+            className={`absolute right-2 top-2 h-2.5 w-2.5 rounded-full ring-2 ring-black/40 ${dotColor}`}
+            title={status}
           />
         )}
       </div>

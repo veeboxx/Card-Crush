@@ -1,21 +1,66 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Check, Heart, Package, SlidersHorizontal, ScanText, Loader2, Sparkles, X, Layers } from 'lucide-react';
+import { Check, Heart, Star, Box, SlidersHorizontal, ScanText, Loader2, Sparkles, X, Layers } from 'lucide-react';
 import { useCollection } from '../store/CollectionContext';
 import { useStoredImage, storeImage, deleteImage } from '../lib/images';
 import { ocrImage, cleanOcrText, type OcrProgress } from '../lib/ocr';
 import { suggestFields, type Suggestion } from '../lib/ocrSuggester';
 import { askConfirm } from '../lib/native';
 import { getImage } from '../db/database';
-import type { Card, FieldValue } from '../types';
+import { hashHue, initials } from '../lib/utils';
+import type { Card, FieldValue, CardStatus } from '../types';
 import ImageDrop from '../components/ImageDrop';
 import CrushRating from '../components/CrushRating';
 import { FieldInput } from '../components/Fields';
+import { useToast } from '../components/Toast';
+
+// ---------------------------------------------------------------------------
+// Dupe detection — text overlap scoring
+// ---------------------------------------------------------------------------
+
+function tokenize(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length >= 3);
+}
+
+function overlapPct(newText: string, existingText: string): number {
+  const newTokens = new Set(tokenize(newText));
+  const existTokens = new Set(tokenize(existingText));
+  if (newTokens.size === 0 || existTokens.size === 0) return 0;
+  let shared = 0;
+  newTokens.forEach((t) => { if (existTokens.has(t)) shared++; });
+  return Math.round((shared / newTokens.size) * 100);
+}
+
+/** Find the best-matching existing card by OCR text overlap.
+ *  Returns the match and percentage, or null if below threshold. */
+function findDupe(newText: string, cards: Card[], excludeId?: string): { card: Card; pct: number } | null {
+  if (!newText.trim() || cards.length === 0) return null;
+  let best: { card: Card; pct: number } | null = null;
+  for (const card of cards) {
+    if (card.id === excludeId) continue;
+    const existingText = [
+      card.name,
+      card.searchText ?? '',
+      card.notes ?? '',
+      ...Object.values(card.fields ?? {}).map(String),
+    ].join(' ');
+    const pct = overlapPct(newText, existingText);
+    if (pct >= 50 && (!best || pct > best.pct)) {
+      best = { card, pct };
+    }
+  }
+  return best;
+}
 
 export default function AddCard() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { cards, presets, settings, createCard, updateCard } = useCollection();
+  const { showSave, showDupe } = useToast();
   const editing = useMemo(() => cards.find((c) => c.id === id), [cards, id]);
 
   const [name, setName] = useState('');
@@ -23,8 +68,7 @@ export default function AddCard() {
   const [backImageId, setBackImageId] = useState<string | undefined>(undefined);
   const [dualFace, setDualFace] = useState(false);
   const [presetId, setPresetId] = useState<string | null>(null);
-  const [owned, setOwned] = useState(false);
-  const [wishlist, setWishlist] = useState(true);
+  const [status, setStatus] = useState<CardStatus>('wishlist');
   const [crush, setCrush] = useState(0);
   const [fields, setFields] = useState<Record<string, FieldValue>>({});
   const [notes, setNotes] = useState('');
@@ -32,6 +76,8 @@ export default function AddCard() {
   const [ocrProgress, setOcrProgress] = useState<OcrProgress | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [dismissed, setDismissed] = useState(false);
+  const [dupeDismissed, setDupeDismissed] = useState(false);
+  const [viewingDupe, setViewingDupe] = useState<import('../types').Card | null>(null);
   const [dirty, setDirty] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -42,8 +88,7 @@ export default function AddCard() {
     setBackImageId(editing.backImageId);
     setDualFace(editing.dualFace ?? false);
     setPresetId(editing.presetId);
-    setOwned(editing.owned);
-    setWishlist(editing.wishlist);
+    setStatus(editing.status ?? (editing.owned ? 'owned' : editing.wishlist ? 'wishlist' : 'none'));
     setCrush(editing.crush);
     setFields(editing.fields ?? {});
     setNotes(editing.notes ?? '');
@@ -58,6 +103,14 @@ export default function AddCard() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty, saved]);
 
+  const resetForm = useCallback(() => {
+    setName(''); setPresetId(null); setStatus('wishlist'); setCrush(0);
+    setNotes(''); setSearchText(''); setFields({});
+    setDualFace(false); setImageId(undefined); setBackImageId(undefined);
+    setSuggestions([]); setDismissed(false); setDupeDismissed(false);
+    setDirty(false);
+  }, []);
+
   const mark = useCallback(<T,>(setter: React.Dispatch<React.SetStateAction<T>>) =>
     (v: T | ((prev: T) => T)) => {
       setter(v as T);
@@ -65,8 +118,6 @@ export default function AddCard() {
     }, []);
 
   const setName_ = mark(setName);
-  const setOwned_ = mark(setOwned);
-  const setWishlist_ = mark(setWishlist);
   const setCrush_ = mark(setCrush);
   const setNotes_ = mark(setNotes);
   const setPresetId_ = mark<string | null>(setPresetId);
@@ -82,6 +133,11 @@ export default function AddCard() {
     setSuggestions([]);
     setDismissed(false);
     setDirty(true);
+    // Auto-OCR if enabled in settings
+    if (settings.ocrEnabled && settings.ocrAutoRun) {
+      // Small delay so the image state has settled
+      setTimeout(() => runOcr(newId), 100);
+    }
   };
 
   const onClear = () => {
@@ -114,9 +170,10 @@ export default function AddCard() {
     setDirty(true);
   };
 
-  const runOcr = async () => {
-    if (!imageId) return;
-    const frontBlob = await getImage(imageId);
+  const runOcr = async (overrideImageId?: string) => {
+    const activeImageId = overrideImageId ?? imageId;
+    if (!activeImageId) return;
+    const frontBlob = await getImage(activeImageId);
     if (!frontBlob) return;
     setSuggestions([]);
     setDismissed(false);
@@ -147,6 +204,19 @@ export default function AddCard() {
       if (presetId && preset) {
         const sugs = suggestFields(frontRaw, presetId, preset.fields);
         setSuggestions(sugs);
+      }
+
+      // Dupe detection — run on the full combined OCR text.
+      if (!dupeDismissed && combined.trim()) {
+        const dupe = findDupe(combined, cards, editing?.id);
+        if (dupe) {
+          showDupe(
+            dupe.card,
+            dupe.pct,
+            () => setDupeDismissed(true),
+            () => setViewingDupe(dupe.card),
+          );
+        }
       }
     } catch (err) {
       console.error('OCR failed:', err);
@@ -185,7 +255,11 @@ export default function AddCard() {
       await deleteImage(editing.backImageId).catch(() => {});
     }
     const patch: Partial<Card> = {
-      name, imageId, presetId, owned, wishlist, crush, fields,
+      name, imageId, presetId,
+      status,
+      owned: status === 'owned',
+      wishlist: status === 'wishlist',
+      crush, fields,
       dualFace: dualFace || undefined,
       backImageId: dualFace ? backImageId : undefined,
       notes: notes.trim() || undefined,
@@ -195,19 +269,29 @@ export default function AddCard() {
     setDirty(false);
     if (editing) {
       await updateCard(editing.id, patch);
+      showSave('Changes saved');
       navigate(`/card/${editing.id}`);
     } else {
-      const c = await createCard(patch);
-      navigate(`/card/${c.id}`);
+      await createCard(patch);
+      showSave('Card added to vault');
+      // Stay on Add Card — reset form so you can add the next card
+      resetForm();
+      setSaved(false);
     }
   };
 
   const tryLeave = async () => {
-    if (dirty && !saved) {
-      const ok = await askConfirm('You have unsaved changes. Leave without saving?', 'Unsaved Changes');
-      if (!ok) return;
+    if (editing) {
+      // Editing an existing card — navigate back as before
+      if (dirty) {
+        const ok = await askConfirm('You have unsaved changes. Leave without saving?', 'Unsaved Changes');
+        if (!ok) return;
+      }
+      navigate(-1);
+    } else {
+      // Creating a new card — just reset the form, stay on Add Card
+      resetForm();
     }
-    navigate(-1);
   };
 
   const showSuggestions = suggestions.length > 0 && !dismissed && (settings.ocrSuggestions ?? true);
@@ -256,7 +340,7 @@ export default function AddCard() {
 
           {/* Save / cancel */}
           <button onClick={save} className="btn-primary w-full justify-center">
-            <Package size={15} /> {editing ? 'Save changes' : 'Add to Vault'}
+            <Box size={15} /> {editing ? 'Save changes' : 'Add to Vault'}
           </button>
           <button onClick={tryLeave} className="btn-ghost w-full justify-center text-xs">
             Cancel
@@ -265,7 +349,7 @@ export default function AddCard() {
           {/* OCR */}
           {imageId && !ocrProgress && (settings.ocrEnabled ?? true) && (
             <button
-              onClick={runOcr}
+              onClick={() => runOcr()}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-hairline bg-white/[0.03] px-3 py-2 text-xs font-semibold text-white/60 transition hover:bg-white/8 hover:text-white active:scale-95"
             >
               <ScanText size={13} />
@@ -310,18 +394,30 @@ export default function AddCard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => { setOwned_((v) => !v); setWishlist(false); setDirty(true); }}
-              className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition ${owned ? 'border-emerald-400/50 bg-emerald-400/15 text-white' : 'border-hairline bg-white/[0.02] text-white/55'}`}
-            >
-              <Check size={15} className={owned ? 'text-emerald-400' : 'text-white/30'} /> Owned
-            </button>
-            <button
-              onClick={() => { setWishlist_((v) => !v); setOwned(false); setDirty(true); }}
-              className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition ${wishlist ? 'border-crush/50 bg-crush/15 text-white' : 'border-hairline bg-white/[0.02] text-white/55'}`}
-            >
-              <Heart size={15} className={wishlist ? 'text-crush' : 'text-white/30'} fill={wishlist ? 'currentColor' : 'none'} /> Wishlist
-            </button>
+            {(['owned', 'wishlist', 'grail'] as CardStatus[]).map((s) => {
+              const active = status === s;
+              const icon = s === 'owned'
+                ? <Check size={15} className={active ? 'text-emerald-400' : 'text-white/30'} />
+                : s === 'wishlist'
+                ? <Heart size={15} className={active ? 'text-rose-400' : 'text-white/30'} fill={active ? 'currentColor' : 'none'} />
+                : <Star size={15} className={active ? 'text-amber-400' : 'text-white/30'} fill={active ? 'currentColor' : 'none'} />;
+              const activeStyle = s === 'owned'
+                ? 'border-emerald-400/50 bg-emerald-400/15 text-white'
+                : s === 'wishlist'
+                ? 'border-rose-500/50 bg-rose-500/15 text-white'
+                : 'border-amber-400/50 bg-amber-400/15 text-white';
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => { setStatus(active ? 'none' : s); setDirty(true); }}
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition ${active ? activeStyle : 'border-hairline bg-white/[0.02] text-white/55 hover:bg-white/[0.05]'}`}
+                >
+                  {icon}
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </button>
+              );
+            })}
             <div className="ml-auto">
               <CrushRating value={crush} onChange={(v) => setCrush_(v)} />
             </div>
@@ -399,6 +495,63 @@ export default function AddCard() {
             />
           </div>
         </div>
+      </div>
+
+      {/* Dupe card sheet — slides up over the add form without navigating away */}
+      {viewingDupe && (
+        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setViewingDupe(null)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div
+            className="relative w-full rounded-t-3xl border-t border-white/10 bg-ink p-5 pb-8 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            style={{ animation: 'toastIn 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards' }}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-wider text-white/40">Existing Card</p>
+              <button onClick={() => setViewingDupe(null)} className="text-white/40 hover:text-white/70 transition">
+                <X size={18} />
+              </button>
+            </div>
+            <DupeCardPreview card={viewingDupe} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Inline dupe card preview for the sheet
+// ---------------------------------------------------------------------------
+function DupeCardPreview({ card }: { card: import('../types').Card }) {
+  const url = useStoredImage(card.imageId);
+  const hue = hashHue(card.name);
+  const ini = initials(card.name);
+  const status = card.status ?? (card.owned ? 'owned' : card.wishlist ? 'wishlist' : 'none');
+  const statusLabel = status === 'owned' ? 'Owned' : status === 'wishlist' ? 'Wishlist' : status === 'grail' ? 'Grail' : 'Not tracked';
+  const statusColor = status === 'owned' ? 'text-emerald-400' : status === 'wishlist' ? 'text-rose-400' : status === 'grail' ? 'text-amber-400' : 'text-white/40';
+
+  return (
+    <div className="flex items-start gap-4">
+      <div className="relative h-28 w-20 shrink-0 overflow-hidden rounded-xl ring-1 ring-white/10">
+        {url
+          ? <img src={url} alt={card.name} className="h-full w-full object-cover" />
+          : <div className="flex h-full w-full items-center justify-center" style={{ background: `linear-gradient(150deg, hsl(${hue} 55% 22%), hsl(${(hue + 40) % 360} 50% 12%))` }}>
+              <span className="font-display text-2xl font-black text-white/80">{ini}</span>
+            </div>
+        }
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xl font-bold text-white truncate">{card.name}</p>
+        <p className={`text-sm font-semibold ${statusColor}`}>{statusLabel}</p>
+        {card.crush > 0 && (
+          <div className="mt-1.5 flex gap-0.5">
+            {Array.from({ length: card.crush }).map((_, i) => (
+              <Heart key={i} size={12} className="text-crush" fill="currentColor" />
+            ))}
+          </div>
+        )}
+        {card.notes && <p className="mt-2 text-xs text-white/50 line-clamp-2">{card.notes}</p>}
       </div>
     </div>
   );

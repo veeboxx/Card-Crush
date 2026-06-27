@@ -7,15 +7,23 @@ export function isTauri(): boolean {
 
 /** Save text to a file. Uses a native Save dialog in Tauri, a download on web. */
 export async function saveTextFile(suggestedName: string, text: string): Promise<boolean> {
+  const ext = suggestedName.split('.').pop()?.toLowerCase() ?? 'txt';
+  const isHtml = ext === 'html';
   if (isTauri()) {
     const { save } = await import('@tauri-apps/plugin-dialog');
     const { writeTextFile } = await import('@tauri-apps/plugin-fs');
-    const path = await save({ defaultPath: suggestedName, filters: [{ name: 'JSON', extensions: ['json'] }] });
+    const path = await save({
+      defaultPath: suggestedName,
+      filters: isHtml
+        ? [{ name: 'HTML', extensions: ['html'] }]
+        : [{ name: 'JSON', extensions: ['json'] }],
+    });
     if (!path) return false;
     await writeTextFile(path, text);
     return true;
   }
-  const blob = new Blob([text], { type: 'application/json' });
+  const mime = isHtml ? 'text/html' : 'application/json';
+  const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

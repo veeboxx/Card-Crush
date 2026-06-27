@@ -161,6 +161,17 @@ export default function Settings() {
           <Toggle on={settings.ocrEnabled ?? true} onToggle={() => saveSettings({ ...settings, ocrEnabled: !(settings.ocrEnabled ?? true) })} />
         </div>
 
+        {/* Auto-OCR on image drop */}
+        {(settings.ocrEnabled ?? true) && (
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-white">Auto-scan on image add</p>
+              <p className="text-xs text-white/45">Run OCR automatically when you drop or import a card image.</p>
+            </div>
+            <Toggle on={settings.ocrAutoRun ?? false} onToggle={() => saveSettings({ ...settings, ocrAutoRun: !(settings.ocrAutoRun ?? false) })} />
+          </div>
+        )}
+
         {/* Smart suggestions */}
         <div className="flex items-center justify-between gap-4">
           <div>

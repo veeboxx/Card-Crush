@@ -68,7 +68,7 @@ export async function exportHtml(
   presets: Preset[],
   options: HtmlExportOptions = {},
 ): Promise<{ html: string; warned: boolean }> {
-  // Export ALL cards — not filtered by owned/wishlist
+  // Export ALL cards — no filter. Grails included.
   const estimatedBytes = options.placeholdersOnly ? 0 : await estimateExportBytes(cards);
   const warned = estimatedBytes > HTML_SIZE_WARN;
 
@@ -76,8 +76,7 @@ export async function exportHtml(
     id: string;
     name: string;
     setNum: string;
-    owned: boolean;
-    wishlist: boolean;
+    status: string;
     crush: number;
     imgSrc: string | null;
     placeholder: string;
@@ -94,12 +93,13 @@ export async function exportHtml(
       .map((f) => ({ label: f.label, value: card.fields[f.id] !== undefined ? String(card.fields[f.id]) : '' }))
       .filter((f) => f.value && f.value !== 'undefined');
 
+    const status = card.status ?? (card.owned ? 'owned' : card.wishlist ? 'wishlist' : 'none');
+
     cardData.push({
       id: card.id,
       name: card.name,
       setNum: setAndNumber(card, preset),
-      owned: card.owned,
-      wishlist: card.wishlist,
+      status,
       crush: card.crush,
       imgSrc,
       placeholder: placeholderBg(card.name),
@@ -190,7 +190,8 @@ body{display:flex;flex-direction:column;overflow:hidden}
 .card-meta{font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .badge{flex-shrink:0;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700}
 .badge-owned{background:rgba(52,200,90,0.15);color:#4ade80;border:1px solid rgba(52,200,90,0.3)}
-.badge-wish{background:rgba(255,61,129,0.12);color:var(--crush2);border:1px solid rgba(255,61,129,0.25)}
+.badge-wish{background:rgba(239,68,68,0.12);color:#fca5a5;border:1px solid rgba(239,68,68,0.25)}
+.badge-grail{background:rgba(251,191,36,0.12);color:#fcd34d;border:1px solid rgba(251,191,36,0.25)}
 
 .modal-bg{
   display:none;position:fixed;inset:0;z-index:50;
@@ -243,6 +244,7 @@ body{display:flex;flex-direction:column;overflow:hidden}
   <button class="tab active" data-tab="all">All</button>
   <button class="tab" data-tab="owned">Owned</button>
   <button class="tab" data-tab="wishlist">Wishlist</button>
+  <button class="tab" data-tab="grail">Grail</button>
 </div>
 
 <div class="list">
@@ -272,25 +274,49 @@ const modalContent = document.getElementById('modal-content');
 function hearts(n) { return '♥'.repeat(n); }
 
 function badge(c) {
-  if (c.owned) return '<span class="badge badge-owned">Owned</span>';
-  if (c.wishlist) return '<span class="badge badge-wish">Wishlist</span>';
+  if (c.status === 'owned') return '<span class="badge badge-owned">Owned</span>';
+  if (c.status === 'wishlist') return '<span class="badge badge-wish">Wishlist</span>';
+  if (c.status === 'grail') return '<span class="badge badge-grail">⭐ Grail</span>';
   return '';
+}
+
+function tokenMatch(haystack, token) {
+  if (haystack.includes(token)) return true;
+  if (token.length < 4) return false;
+  // Simple trigram fuzzy
+  const words = haystack.split(/[\s\x01]+/);
+  return words.some(w => {
+    if (Math.abs(w.length - token.length) > 3) return false;
+    let shared = 0;
+    for (let i = 0; i < token.length - 1; i++) {
+      if (w.includes(token.slice(i, i+2))) shared++;
+    }
+    return shared / (token.length - 1) > 0.5;
+  });
 }
 
 function render() {
   const q = query.toLowerCase().trim();
+  const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
   const filtered = CARDS.filter(c => {
-    const tabOk = activeTab === 'all'
-      || (activeTab === 'owned' && c.owned)
-      || (activeTab === 'wishlist' && c.wishlist);
-    const searchOk = !q
-      || c.name.toLowerCase().includes(q)
-      || (c.setNum && c.setNum.toLowerCase().includes(q))
-      || c.fields.some(f => f.value.toLowerCase().includes(q))
-      || (c.searchText && c.searchText.toLowerCase().includes(q))
-      || (c.notes && c.notes.toLowerCase().includes(q));
-    return tabOk && searchOk;
+    const tabOk = activeTab === 'all' || c.status === activeTab;
+    if (!tabOk) return false;
+    if (!tokens.length) return true;
+    const hay = [c.name, c.setNum, c.notes, c.searchText, ...c.fields.map(f => f.value)].join(' \x01 ').toLowerCase();
+    return tokens.every(t => tokenMatch(hay, t));
   });
+
+  // Sort: name prefix matches first
+  if (tokens.length) {
+    const firstName = tokens[0];
+    filtered.sort((a, b) => {
+      const aName = a.name.toLowerCase();
+      const bName = b.name.toLowerCase();
+      const aScore = aName.startsWith(firstName) ? 2 : aName.includes(firstName) ? 1 : 0;
+      const bScore = bName.startsWith(firstName) ? 2 : bName.includes(firstName) ? 1 : 0;
+      return bScore - aScore;
+    });
+  }
 
   countEl.textContent = filtered.length + ' card' + (filtered.length !== 1 ? 's' : '');
 
@@ -400,8 +426,9 @@ const IMG_H = CELL_H - 24;
 export async function exportPdf(cards: Card[], presets: Preset[]): Promise<Uint8Array> {
   const { jsPDF } = await import('jspdf');
 
-  const owned = cards.filter((c) => c.owned);
-  const wishlist = cards.filter((c) => c.wishlist && !c.owned);
+  const owned = cards.filter((c) => (c.status ?? (c.owned ? 'owned' : 'none')) === 'owned');
+  const wishlist = cards.filter((c) => (c.status ?? (c.wishlist ? 'wishlist' : 'none')) === 'wishlist');
+  // Grails are aspirational — excluded from the print reference sheet
 
   const doc = new jsPDF({ unit: 'pt', format: 'letter', orientation: 'portrait' });
   doc.setFont('helvetica');

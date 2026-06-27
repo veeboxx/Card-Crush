@@ -179,7 +179,7 @@ body,
 
 body {
   margin: 0;
-  font-family: 'Manrope', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   background-color: rgb(var(--c-void));
   color: rgb(var(--c-fg));
   -webkit-font-smoothing: antialiased;

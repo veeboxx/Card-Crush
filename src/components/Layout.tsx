@@ -60,7 +60,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       )}
 
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-hairline bg-ink/60 backdrop-blur-xl md:flex">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-white/[0.06] bg-white/[0.03] backdrop-blur-2xl md:flex" style={{ boxShadow: 'inset -1px 0 0 rgba(255,255,255,0.04)' }}>
         <Link to="/" className="flex items-center gap-2.5 px-5 py-5">
           <img src="/logo.png" alt="Card Crush" className="h-9 w-9 object-contain drop-shadow-[0_2px_8px_rgba(157,123,255,0.45)]" />
           <div>

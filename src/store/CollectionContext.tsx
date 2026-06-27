@@ -1,10 +1,16 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
-import type { Card, Preset, AppSettings } from '../types';
-import { DEFAULT_SETTINGS } from '../types';
+import type { Card, Preset, AppSettings, CardStatus } from '../types';
+import { DEFAULT_SETTINGS, statusFromLegacy } from '../types';
 import * as db from '../db/database';
 import { uid, nowIso } from '../lib/utils';
 import { deleteImage } from '../lib/images';
 import { DEFAULT_PRESETS } from '../data/defaultPresets';
+
+/** Ensure a card loaded from IndexedDB has the v4 status field. */
+function normalizeCard(c: Card): Card {
+  if (c.status) return c;
+  return { ...c, status: statusFromLegacy(c.owned, c.wishlist) };
+}
 
 interface Ctx {
   ready: boolean;
@@ -30,8 +36,8 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
 
   const reload = useCallback(async () => {
-    const [c, p, s] = await Promise.all([db.allCards(), db.allPresets(), db.getSettings()]);
-    // Seed the four built-in game presets on first ever run.
+    const [rawCards, p, s] = await Promise.all([db.allCards(), db.allPresets(), db.getSettings()]);
+    const c = (rawCards as Card[]).map(normalizeCard);
     if (p.length === 0) {
       await Promise.all(DEFAULT_PRESETS.map((dp) => db.putPreset(dp)));
       setPresets(DEFAULT_PRESETS);
@@ -42,28 +48,31 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     setSettings({ ...DEFAULT_SETTINGS, ...(s ?? {}) });
   }, []);
 
-  useEffect(() => {
-    reload().finally(() => setReady(true));
-  }, [reload]);
+  useEffect(() => { reload().finally(() => setReady(true)); }, [reload]);
 
-  // Apply the active theme to the document (drives the CSS color variables).
   useEffect(() => {
     document.documentElement.dataset.theme = settings.theme ?? 'vault';
   }, [settings.theme]);
 
   const createCard = useCallback(async (partial: Partial<Card>) => {
     const ts = nowIso();
+    const status: CardStatus = partial.status ?? 'wishlist';
     const card: Card = {
       id: uid('card'),
       presetId: partial.presetId ?? null,
       name: partial.name?.trim() || 'Untitled Card',
       imageId: partial.imageId,
-      owned: partial.owned ?? false,
-      wishlist: partial.wishlist ?? true,
+      backImageId: partial.backImageId,
+      dualFace: partial.dualFace,
+      status,
+      // keep legacy booleans in sync for backup compat
+      owned: status === 'owned',
+      wishlist: status === 'wishlist',
       crush: partial.crush ?? 0,
       fields: partial.fields ?? {},
       searchText: partial.searchText,
       notes: partial.notes,
+      grailNote: partial.grailNote,
       createdAt: ts,
       updatedAt: ts,
     };
@@ -73,6 +82,14 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateCard = useCallback(async (id: string, patch: Partial<Card>) => {
+    // Keep legacy booleans in sync when status changes.
+    if (patch.status !== undefined) {
+      patch = {
+        ...patch,
+        owned: patch.status === 'owned',
+        wishlist: patch.status === 'wishlist',
+      };
+    }
     let updated: Card | null = null;
     setCards((cs) =>
       cs.map((c) => {
@@ -94,13 +111,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
 
   const createPreset = useCallback(async (name: string) => {
     const ts = nowIso();
-    const preset: Preset = {
-      id: uid('preset'),
-      name: name.trim() || 'New Preset',
-      fields: [],
-      createdAt: ts,
-      updatedAt: ts,
-    };
+    const preset: Preset = { id: uid('preset'), name: name.trim() || 'New Preset', fields: [], createdAt: ts, updatedAt: ts };
     await db.putPreset(preset);
     setPresets((ps) => [...ps, preset]);
     return preset;
@@ -128,22 +139,11 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     await db.putSettings(s);
   }, []);
 
-  const value: Ctx = {
-    ready,
-    cards,
-    presets,
-    settings,
-    createCard,
-    updateCard,
-    deleteCard,
-    createPreset,
-    updatePreset,
-    deletePreset,
-    saveSettings,
-    reload,
-  };
-
-  return <CollectionCtx.Provider value={value}>{children}</CollectionCtx.Provider>;
+  return (
+    <CollectionCtx.Provider value={{ ready, cards, presets, settings, createCard, updateCard, deleteCard, createPreset, updatePreset, deletePreset, saveSettings, reload }}>
+      {children}
+    </CollectionCtx.Provider>
+  );
 }
 
 export function useCollection(): Ctx {
